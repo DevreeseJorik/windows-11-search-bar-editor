@@ -1,4 +1,5 @@
 import winreg
+import os
 
 class FileDataReader:
     def read_data(self, file_path):
@@ -70,7 +71,7 @@ class RegistryImageEditor(RegistryEditor):
         if image_data:
             try:
                 with winreg.OpenKey(self.key, subkey, 0, winreg.KEY_WRITE) as reg_key:
-                    winreg.SetValueEx(reg_key, value_name, 0, winreg.REG_BINARY, image_data)  # Write as REG_BINARY
+                    winreg.SetValueEx(reg_key, value_name, 0, winreg.REG_BINARY, image_data)
                     print(f"Image data for {value_name} has been successfully updated.")
             except OSError as e:
                 print(f"Error occurred while editing image data: {e}")
@@ -85,22 +86,18 @@ def main():
         print(f"Dir found: {search_settings_reg}\\{dir_name}")
         icon_dir = search_settings_reg + "\\" + dir_name + r"\icons"
 
-        # Initialize RegistryImageEditor
-        # Print data for images 0 and 1
+
         # registry_editor.print_image_data(icon_dir, "0")
         # registry_editor.print_image_data(icon_dir, "1")
 
-        # Edit data for image 0
-
-        # set search_reg's SearchboxTaskbarMode to 0
+        # set search_reg's SearchboxTaskbarMode to 0 (no icon)
         registry_editor.write_value(search_reg, "SearchboxTaskbarMode", 0, winreg.REG_DWORD)
 
-        # wait 3 seconds
-        file_path = r"C:\Users\jorik\OneDrive\Documents\Projects\RegistryTweak\svg\my-svg.svg"
+        file_path = os.path.join(os.path.dirname(__file__), "svg", "my-svg.svg")
         registry_editor.edit_image_data(icon_dir, "0", file_path)
         registry_editor.edit_image_data(icon_dir, "1", file_path)
 
-        # set search_reg's SearchboxTaskbarMode to 2
+        # set search_reg's SearchboxTaskbarMode to 2 (icon)
         registry_editor.write_value(search_reg, "SearchboxTaskbarMode", 2, winreg.REG_DWORD)
     else:
         print("No directory found in the registry path.")
