@@ -5,7 +5,7 @@ class FileDataReader:
     def read_data(self, file_path):
         try:
             with open(file_path, 'rb') as file:  # Read file in binary mode
-                return file.read()  # Return binary data
+                return file.read(), os.path.splitext(file_path)[1] # Return file data and extension
         except FileNotFoundError:
             return None
 
@@ -52,55 +52,70 @@ class RegistryEditor:
         except OSError as e:
             print(f"Error occurred while writing value: {e}")
 
-class RegistryImageEditor(RegistryEditor):
+class SearchbarImageEditor(RegistryEditor):
     def __init__(self, key):
         super().__init__(key)
+        self.search_reg = r"Software\Microsoft\Windows\CurrentVersion\Search"
+        self.search_settings_reg = r"Software\Microsoft\Windows\CurrentVersion\SearchSettings\Dynamic"
+        self.search_settings_current_reg = self.get_search_settings_dir()
+        self.icon_dir = self.get_icon_dir()
 
-    def print_image_data(self, subkey, value_name):
-        print(f"subkey: {subkey}")
-        image_data = self.read_value(subkey, value_name)
+    def get_search_settings_dir(self):
+        dir_name = self.read_subkey_at_index(self.search_settings_reg, 1)
+        if dir_name:
+            return self.search_settings_reg + "\\" + dir_name
+        raise KeyError("No directory found in the registry path.")
+        
+    def get_icon_dir(self):
+        return self.search_settings_current_reg + r"\icons"
+
+    def set_search_mode(self, mode):
+        self.write_value(self.search_reg, "SearchboxTaskbarMode", mode, winreg.REG_DWORD)
+
+    def set_icon_size(self, size):
+        self.write_value(self.search_settings_current_reg, "iconSize", size, winreg.REG_DWORD)
+    
+    def set_content_type(self, content_type):
+        if content_type in ["svg", "png", "jpg", "jpeg", "gif", "bmp", "ico"]:
+            self.write_value(self.search_settings_current_reg, "contentType", content_type, winreg.REG_EXPAND_SZ)
+            return
+        raise ValueError("Invalid content type.")
+    
+    def set_img_data(self, value_name, image_data):
+        try:
+            with winreg.OpenKey(self.key, self.icon_dir, 0, winreg.KEY_WRITE) as reg_key:
+                winreg.SetValueEx(reg_key, value_name, 0, winreg.REG_BINARY, image_data)
+                print(f"Image data for {value_name} has been successfully updated.")
+        except OSError as e:
+            print(f"Error occurred while setting image data: {e}")
+    
+    def print_image_data(self, value_name):
+        image_data = self.read_value(self.icon_dir, value_name)
         if image_data:
             print(f"Image data for {value_name}:")
             print(image_data)
-        else:
-            print(f"No data found for {value_name}")
+            return
+        raise KeyError(f"No image data found for {value_name}.")
 
-    def edit_image_data(self, subkey, value_name, file_path):
-        image_data = FileDataReader().read_data(file_path)
+    def edit_image_data(self, file_path):
+        image_data, ext = FileDataReader().read_data(file_path)
 
         if image_data:
             try:
-                with winreg.OpenKey(self.key, subkey, 0, winreg.KEY_WRITE) as reg_key:
-                    winreg.SetValueEx(reg_key, value_name, 0, winreg.REG_BINARY, image_data)
-                    print(f"Image data for {value_name} has been successfully updated.")
+                self.set_icon_size(1)
+                self.set_content_type(ext[1:])
+                
+                self.set_search_mode(0) # Set search mode to 0, so icon is not displayed
+                self.set_img_data('0', image_data)
+                self.set_img_data('1', image_data)
+                self.set_search_mode(2) # Set search mode to 2, so icon is initialized and displayed
+
             except OSError as e:
                 print(f"Error occurred while editing image data: {e}")
 
 def main():
-    search_reg = r"Software\Microsoft\Windows\CurrentVersion\Search"
-    search_settings_reg = r"Software\Microsoft\Windows\CurrentVersion\SearchSettings\Dynamic"
-    registry_editor = RegistryImageEditor(winreg.HKEY_CURRENT_USER)
-    dir_name = registry_editor.read_subkey_at_index(search_settings_reg, 1)
-
-    if dir_name:
-        print(f"Dir found: {search_settings_reg}\\{dir_name}")
-        icon_dir = search_settings_reg + "\\" + dir_name + r"\icons"
-
-
-        # registry_editor.print_image_data(icon_dir, "0")
-        # registry_editor.print_image_data(icon_dir, "1")
-
-        # set search_reg's SearchboxTaskbarMode to 0 (no icon)
-        registry_editor.write_value(search_reg, "SearchboxTaskbarMode", 0, winreg.REG_DWORD)
-
-        file_path = os.path.join(os.path.dirname(__file__), "svg", "my-svg.svg")
-        registry_editor.edit_image_data(icon_dir, "0", file_path)
-        registry_editor.edit_image_data(icon_dir, "1", file_path)
-
-        # set search_reg's SearchboxTaskbarMode to 2 (icon)
-        registry_editor.write_value(search_reg, "SearchboxTaskbarMode", 2, winreg.REG_DWORD)
-    else:
-        print("No directory found in the registry path.")
+    registry_editor = SearchbarImageEditor(winreg.HKEY_CURRENT_USER)
+    registry_editor.edit_image_data(os.path.join(os.path.dirname(__file__), "img", "my-png.png"))
 
 if __name__ == "__main__":
     main()
