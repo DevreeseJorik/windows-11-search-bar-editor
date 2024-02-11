@@ -110,8 +110,8 @@ class SearchbarImageEditor(RegistryEditor):
                 self.set_img_data('1', image_data)
                 self.set_search_mode(2) # Set search mode to 2, so icon is initialized and displayed
 
-            except OSError as e:
-                print(f"Error occurred while editing image data: {e}")
+            except (KeyError, ValueError, OSError) as e:
+                print(e)
 
 def main():
     registry_editor = SearchbarImageEditor(winreg.HKEY_CURRENT_USER)
